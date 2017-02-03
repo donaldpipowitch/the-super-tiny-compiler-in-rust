@@ -26,8 +26,8 @@ pub fn tokenizer(input: &str) -> Vec<Token> {
                     _ => false,
                 } {
                     value.push(c);
-                    match char_iter.next() {
-                        Some(v) => c = v,
+                    c = match char_iter.next() {
+                        Some(c) => c,
                         None => break,
                     }
                 }
