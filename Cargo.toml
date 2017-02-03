@@ -1,0 +1,6 @@
+[package]
+name = "the-super-tiny-compiler"
+version = "0.1.0"
+authors = ["Donald Pipowitch <pipo@senaeh.de>"]
+
+[dependencies]
