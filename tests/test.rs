@@ -18,5 +18,5 @@ fn tokenizer_works() {
                       Token::ParenClosing,
                       Token::ParenClosing];
 
-    assert_eq!(tokens, tokenizer(input));
+    assert_eq!(Ok(tokens), tokenizer(input));
 }

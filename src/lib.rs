@@ -3,12 +3,11 @@ pub enum Token {
     Number(String),
     String(String),
     Name(String),
-    SomethingElse,
     ParenOpening,
     ParenClosing,
 }
 
-pub fn tokenizer(input: &str) -> Vec<Token> {
+pub fn tokenizer(input: &str) -> Result<Vec<Token>, String> {
     let mut tokens: Vec<Token> = vec![];
 
     let mut char_iter = input.chars().peekable();
@@ -64,10 +63,9 @@ pub fn tokenizer(input: &str) -> Vec<Token> {
                     char_iter.next();
                 }
             }
-            // TODO: Use Option here...
-            _ => tokens.push(Token::SomethingElse),
+            _ => return Err(format!("I dont know what this character is: {}", c)),
         }
     }
 
-    tokens
+    Ok(tokens)
 }
