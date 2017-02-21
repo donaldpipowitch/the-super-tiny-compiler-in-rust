@@ -31,17 +31,6 @@ fn tokenizer_works() {
                    }],
     };
 
-    assert_eq!(Ok(tokens), tokenizer(input));
-
-    let tokens2 = vec![Token::ParenOpening,
-                       Token::Name("add".to_string()),
-                       Token::Number("22".to_string()),
-                       Token::String("ff".to_string()),
-                       Token::ParenOpening,
-                       Token::Name("subtract".to_string()),
-                       Token::Number("4".to_string()),
-                       Token::Number("2".to_string()),
-                       Token::ParenClosing,
-                       Token::ParenClosing];
-    assert_eq!(Ok(ast), parser(tokens2));
+    assert_eq!(Ok(tokens.clone()), tokenizer(input));
+    assert_eq!(Ok(ast), parser(tokens.clone()));
 }
