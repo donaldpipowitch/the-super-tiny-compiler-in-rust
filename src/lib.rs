@@ -52,9 +52,7 @@ pub fn tokenizer(input: &str) -> Result<Vec<Token>, String> {
                 tokens.push(Token::String(value));
 
                 // skip closing ""
-                if char_iter.peek() == Some(&'"') {
-                    char_iter.next();
-                }
+                char_iter.next().unwrap();
             }
             _ => return Err(format!("I dont know what this character is: {}", c)),
         }
@@ -85,21 +83,18 @@ pub fn parser(tokens: Vec<Token>) -> Result<Ast, String> {
                             let mut params: Vec<Ast> = vec![];
 
                             while match token_iter.peek() {
-                                Some(&&Token::ParenClosing) => {
-                                    // skip closing )
-                                    token_iter.next();
-                                    false
-                                }
+                                Some(&&Token::ParenClosing) |
                                 None => false,
                                 _ => true,
                             } {
-                                if let Some(token) = token_iter.next() {
-                                    match walk(token, token_iter) {
-                                        Ok(nodes) => params.push(nodes),
-                                        Err(value) => return Err(value),
-                                    }
+                                match walk(token_iter.next().unwrap(), token_iter) {
+                                    Ok(nodes) => params.push(nodes),
+                                    Err(value) => return Err(value),
                                 }
                             }
+
+                            // skip Token::ParenClosing
+                            token_iter.next().unwrap();
 
                             Ok(Ast::CallExpression {
                                 name: name,
