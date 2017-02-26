@@ -1,5 +1,5 @@
 use std::iter::Peekable;
-use std::slice::Iter;
+use std::vec::IntoIter;
 
 #[derive(Debug,PartialEq,Clone)]
 pub enum Token {
@@ -71,19 +71,18 @@ pub enum Ast {
 }
 
 pub fn parser(tokens: Vec<Token>) -> Result<Ast, String> {
-    fn walk(token: &Token, token_iter: &mut Peekable<Iter<Token>>) -> Result<Ast, String> {
-        match *token {
-            Token::Number(ref value) => Ok(Ast::NumberLiteral(value.to_string())),
-            Token::String(ref value) => Ok(Ast::StringLiteral(value.to_string())),
+    fn walk(token: Token, token_iter: &mut Peekable<IntoIter<Token>>) -> Result<Ast, String> {
+        match token {
+            Token::Number(value) => Ok(Ast::NumberLiteral(value)),
+            Token::String(value) => Ok(Ast::StringLiteral(value)),
             Token::ParenOpening => {
                 if let Some(token) = token_iter.next() {
                     match token {
-                        &Token::Name(ref value) => {
-                            let name = value.to_string();
+                        Token::Name(name) => {
                             let mut params: Vec<Ast> = vec![];
 
                             while match token_iter.peek() {
-                                Some(&&Token::ParenClosing) |
+                                Some(&Token::ParenClosing) |
                                 None => false,
                                 _ => true,
                             } {
@@ -117,7 +116,7 @@ pub fn parser(tokens: Vec<Token>) -> Result<Ast, String> {
 
     let mut body: Vec<Ast> = vec![];
 
-    let mut token_iter = tokens.iter().peekable();
+    let mut token_iter = tokens.into_iter().peekable();
     while let Some(token) = token_iter.next() {
         match walk(token, &mut token_iter) {
             Ok(nodes) => body.push(nodes),
