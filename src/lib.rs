@@ -54,7 +54,7 @@ pub fn tokenizer(input: &str) -> Result<Vec<Token>, String> {
                 // skip closing ""
                 char_iter.next().unwrap();
             }
-            _ => return Err(format!("I dont know what this character is: {}", c)),
+            _ => return Err(format!("I don't know what this character is: {}", c)),
         }
     }
 
@@ -110,7 +110,7 @@ pub fn parser(tokens: Vec<Token>) -> Result<Ast, String> {
                     return Err(format!("{:?} isn't followed by a node.", Token::ParenOpening));
                 }
             }
-            _ => return Err(format!("I dont know what this token is: {:?}", token)),
+            _ => return Err(format!("I don't know what this token is: {:?}", token)),
         }
     }
 
