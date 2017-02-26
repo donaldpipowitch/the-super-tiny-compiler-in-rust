@@ -67,7 +67,6 @@ pub enum Ast {
     CallExpression { name: String, params: Vec<Ast> },
     StringLiteral(String),
     NumberLiteral(String),
-    SomethingElse,
 }
 
 pub fn parser(tokens: Vec<Token>) -> Result<Ast, String> {
