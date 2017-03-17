@@ -1,6 +1,7 @@
 extern crate the_super_tiny_compiler;
 
 use the_super_tiny_compiler::*;
+use std::collections::HashMap;
 
 #[test]
 fn tokenizer_works() {
@@ -18,19 +19,30 @@ fn tokenizer_works() {
                       Token::ParenClosing,
                       Token::ParenClosing];
 
-    let ast = Ast::Programm {
-        body: vec![Ast::CallExpression {
+    let ast = Node::Programm {
+        body: vec![Node::CallExpression {
                        name: "add".to_string(),
-                       params: vec![Ast::NumberLiteral("22".to_string()),
-                                    Ast::StringLiteral("ff".to_string()),
-                                    Ast::CallExpression {
+                       params: vec![Node::NumberLiteral("22".to_string()),
+                                    Node::StringLiteral("ff".to_string()),
+                                    Node::CallExpression {
                                         name: "subtract".to_string(),
-                                        params: vec![Ast::NumberLiteral("4".to_string()),
-                                                     Ast::NumberLiteral("2".to_string())],
+                                        params: vec![Node::NumberLiteral("4".to_string()),
+                                                     Node::NumberLiteral("2".to_string())],
                                     }],
                    }],
     };
 
     assert_eq!(Ok(tokens.clone()), tokenizer(input));
     assert_eq!(Ok(ast), parser(tokens.clone()));
+
+    // test traverser
+    let mut visitors = HashMap::new();
+    visitors.insert(Node::Programm,
+                    Visitor {
+                        enter: Some(Box::new(move |node: Node, parent: Option<Node>| {
+                            println!("test works!")
+                        })),
+                        exit: None,
+                    });
+    traverser(parser(tokens.clone()).unwrap(), visitors);
 }

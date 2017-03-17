@@ -1,5 +1,6 @@
 use std::iter::Peekable;
 use std::vec::IntoIter;
+use std::collections::HashMap;
 
 #[derive(Debug,PartialEq,Clone)]
 pub enum Token {
@@ -61,24 +62,24 @@ pub fn tokenizer(input: &str) -> Result<Vec<Token>, String> {
     Ok(tokens)
 }
 
-#[derive(Debug,PartialEq)]
-pub enum Ast {
-    Programm { body: Vec<Ast> },
-    CallExpression { name: String, params: Vec<Ast> },
+#[derive(Debug,PartialEq,Eq,Hash)]
+pub enum Node {
+    Programm { body: Vec<Node> },
+    CallExpression { name: String, params: Vec<Node> },
     StringLiteral(String),
     NumberLiteral(String),
 }
 
-pub fn parser(tokens: Vec<Token>) -> Result<Ast, String> {
-    fn walk(token: Token, token_iter: &mut Peekable<IntoIter<Token>>) -> Result<Ast, String> {
+pub fn parser(tokens: Vec<Token>) -> Result<Node, String> {
+    fn walk(token: Token, token_iter: &mut Peekable<IntoIter<Token>>) -> Result<Node, String> {
         match token {
-            Token::Number(value) => Ok(Ast::NumberLiteral(value)),
-            Token::String(value) => Ok(Ast::StringLiteral(value)),
+            Token::Number(value) => Ok(Node::NumberLiteral(value)),
+            Token::String(value) => Ok(Node::StringLiteral(value)),
             Token::ParenOpening => {
                 if let Some(token) = token_iter.next() {
                     match token {
                         Token::Name(name) => {
-                            let mut params: Vec<Ast> = vec![];
+                            let mut params: Vec<Node> = vec![];
 
                             while match token_iter.peek() {
                                 Some(&Token::ParenClosing) |
@@ -94,7 +95,7 @@ pub fn parser(tokens: Vec<Token>) -> Result<Ast, String> {
                             // skip Token::ParenClosing
                             token_iter.next().unwrap();
 
-                            Ok(Ast::CallExpression {
+                            Ok(Node::CallExpression {
                                 name: name,
                                 params: params,
                             })
@@ -113,7 +114,7 @@ pub fn parser(tokens: Vec<Token>) -> Result<Ast, String> {
         }
     }
 
-    let mut body: Vec<Ast> = vec![];
+    let mut body: Vec<Node> = vec![];
 
     let mut token_iter = tokens.into_iter().peekable();
     while let Some(token) = token_iter.next() {
@@ -123,5 +124,22 @@ pub fn parser(tokens: Vec<Token>) -> Result<Ast, String> {
         }
     }
 
-    Ok(Ast::Programm { body: body })
+    Ok(Node::Programm { body: body })
+}
+
+pub struct Visitor {
+    enter: Option<Box<Fn(Node, Option<Node>)>>,
+    exit: Option<Box<Fn(Node, Option<Node>)>>,
+}
+
+pub fn traverser(node: Node, visitors: HashMap<Node, Visitor>) {
+    let traverse_node = |node: Node, parent: Option<Node>| {
+        if let Some(visitor) = visitors.get(&node) {
+            if let Some(ref enter) = visitor.enter {
+                enter(node, parent);
+            }
+        }
+    };
+
+    traverse_node(node, None);
 }
