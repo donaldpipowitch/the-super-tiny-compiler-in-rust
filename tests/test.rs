@@ -37,12 +37,14 @@ fn tokenizer_works() {
 
     // test traverser
     let mut visitors = HashMap::new();
-    visitors.insert(Node::Programm,
+    visitors.insert(NodeType::Programm,
                     Visitor {
-                        enter: Some(Box::new(move |node: Node, parent: Option<Node>| {
-                            println!("test works!")
+                        enter: Some(Box::new(|node: &Node, parent: &Option<Node>| {
+                            println!("test enter works!")
                         })),
-                        exit: None,
+                        exit: Some(Box::new(|node: &Node, parent: &Option<Node>| {
+                            println!("test exit works!")
+                        })), // exit: None,
                     });
     traverser(parser(tokens.clone()).unwrap(), visitors);
 }

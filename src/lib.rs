@@ -63,11 +63,30 @@ pub fn tokenizer(input: &str) -> Result<Vec<Token>, String> {
 }
 
 #[derive(Debug,PartialEq,Eq,Hash)]
+pub enum NodeType {
+    Programm,
+    CallExpression,
+    StringLiteral,
+    NumberLiteral,
+}
+
+#[derive(Debug,PartialEq)]
 pub enum Node {
     Programm { body: Vec<Node> },
     CallExpression { name: String, params: Vec<Node> },
     StringLiteral(String),
     NumberLiteral(String),
+}
+
+impl Node {
+    fn get_type(&self) -> NodeType {
+        match *self {
+            Node::Programm { .. } => NodeType::Programm,
+            Node::CallExpression { .. } => NodeType::CallExpression,
+            Node::StringLiteral(_) => NodeType::StringLiteral,
+            Node::NumberLiteral(_) => NodeType::NumberLiteral,
+        }
+    }
 }
 
 pub fn parser(tokens: Vec<Token>) -> Result<Node, String> {
@@ -128,18 +147,40 @@ pub fn parser(tokens: Vec<Token>) -> Result<Node, String> {
 }
 
 pub struct Visitor {
-    enter: Option<Box<Fn(Node, Option<Node>)>>,
-    exit: Option<Box<Fn(Node, Option<Node>)>>,
+    pub enter: Option<Box<Fn(&Node, &Option<Node>)>>,
+    pub exit: Option<Box<Fn(&Node, &Option<Node>)>>,
 }
 
-pub fn traverser(node: Node, visitors: HashMap<Node, Visitor>) {
-    let traverse_node = |node: Node, parent: Option<Node>| {
-        if let Some(visitor) = visitors.get(&node) {
-            if let Some(ref enter) = visitor.enter {
-                enter(node, parent);
+pub fn traverser(node: Node, visitors: HashMap<NodeType, Visitor>) {
+    let traverse_nodes = |nodes: Vec<Node>, parent: &Option<Node>| {
+        for node in nodes {
+            traverse_node(node, parent);
+        }
+    };
+
+    let traverse_node = |node: Node, parent: &Option<Node>| {
+        let node_type = &node.get_type();
+        let visitor = visitors.get(node_type);
+
+        if visitor.is_some() {
+            if let Some(ref enter) = visitor.unwrap().enter {
+                enter(&node, &parent);
+            }
+        }
+
+        match *node_type {
+            NodeType::Programm => traverse_nodes(node.body, &Some(node)),
+            NodeType::CallExpression => traverse_nodes(node.params, &Some(node)),
+            _ => (),
+            //_ => println!("We can't have an unknown type here!"),
+        }
+
+        if visitor.is_some() {
+            if let Some(ref exit) = visitor.unwrap().exit {
+                exit(&node, &parent);
             }
         }
     };
 
-    traverse_node(node, None);
+    traverse_node(node, &None);
 }
