@@ -39,10 +39,10 @@ fn tokenizer_works() {
     let mut visitors = HashMap::new();
     visitors.insert(NodeType::Programm,
                     Visitor {
-                        enter: Some(Box::new(|node: &Node, parent: &Option<Node>| {
+                        enter: Some(Box::new(|node: &Node, parent: Option<&Node>| {
                             println!("test enter works!")
                         })),
-                        exit: Some(Box::new(|node: &Node, parent: &Option<Node>| {
+                        exit: Some(Box::new(|node: &Node, parent: Option<&Node>| {
                             println!("test exit works!")
                         })), // exit: None,
                     });

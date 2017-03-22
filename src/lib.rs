@@ -45,9 +45,9 @@ pub fn tokenizer(input: &str) -> Result<Vec<Token>, String> {
                 // ignore opening "
 
                 while match char_iter.peek() {
-                    Some(&'"') | None => false,
-                    _ => true,
-                } {
+                          Some(&'"') | None => false,
+                          _ => true,
+                      } {
                     value.push(char_iter.next().unwrap());
                 }
                 tokens.push(Token::String(value));
@@ -101,10 +101,10 @@ pub fn parser(tokens: Vec<Token>) -> Result<Node, String> {
                             let mut params: Vec<Node> = vec![];
 
                             while match token_iter.peek() {
-                                Some(&Token::ParenClosing) |
-                                None => false,
-                                _ => true,
-                            } {
+                                      Some(&Token::ParenClosing) |
+                                      None => false,
+                                      _ => true,
+                                  } {
                                 match walk(token_iter.next().unwrap(), token_iter) {
                                     Ok(nodes) => params.push(nodes),
                                     Err(value) => return Err(value),
@@ -115,9 +115,9 @@ pub fn parser(tokens: Vec<Token>) -> Result<Node, String> {
                             token_iter.next().unwrap();
 
                             Ok(Node::CallExpression {
-                                name: name,
-                                params: params,
-                            })
+                                   name: name,
+                                   params: params,
+                               })
                         }
                         _ => {
                             return Err(format!("{:?} isn't followed by a {:?}.",
@@ -129,7 +129,11 @@ pub fn parser(tokens: Vec<Token>) -> Result<Node, String> {
                     return Err(format!("{:?} isn't followed by a node.", Token::ParenOpening));
                 }
             }
-            _ => return Err(format!("I don't know what this token is: {:?}", token)),
+            _ => {
+                return Err(format!("I don't know what this token is or this is a token which \
+                                    should be covered elsewhere: {:?}",
+                                   token))
+            }
         }
     }
 
@@ -147,40 +151,41 @@ pub fn parser(tokens: Vec<Token>) -> Result<Node, String> {
 }
 
 pub struct Visitor {
-    pub enter: Option<Box<Fn(&Node, &Option<Node>)>>,
-    pub exit: Option<Box<Fn(&Node, &Option<Node>)>>,
+    pub enter: Option<Box<Fn(&Node, Option<&Node>)>>,
+    pub exit: Option<Box<Fn(&Node, Option<&Node>)>>,
 }
 
 pub fn traverser(node: Node, visitors: HashMap<NodeType, Visitor>) {
-    let traverse_nodes = |nodes: Vec<Node>, parent: &Option<Node>| {
+    fn traverse_nodes(nodes: &Vec<Node>,
+                      parent: Option<&Node>,
+                      visitors: &HashMap<NodeType, Visitor>) {
         for node in nodes {
-            traverse_node(node, parent);
+            traverse_node(&node, parent, visitors);
         }
     };
 
-    let traverse_node = |node: Node, parent: &Option<Node>| {
-        let node_type = &node.get_type();
-        let visitor = visitors.get(node_type);
+    fn traverse_node(node: &Node, parent: Option<&Node>, visitors: &HashMap<NodeType, Visitor>) {
+        let visitor = visitors.get(&node.get_type());
 
         if visitor.is_some() {
             if let Some(ref enter) = visitor.unwrap().enter {
-                enter(&node, &parent);
+                enter(&node, parent);
             }
         }
 
-        match *node_type {
-            NodeType::Programm => traverse_nodes(node.body, &Some(node)),
-            NodeType::CallExpression => traverse_nodes(node.params, &Some(node)),
-            _ => (),
-            //_ => println!("We can't have an unknown type here!"),
+        match *node {
+            Node::Programm { ref body } => traverse_nodes(body, Some(node), visitors),
+            Node::CallExpression { ref params, .. } => traverse_nodes(params, Some(node), visitors),
+            _ => {}
+            //_ => println!("We can't have an unknown node here!"),
         }
 
         if visitor.is_some() {
             if let Some(ref exit) = visitor.unwrap().exit {
-                exit(&node, &parent);
+                exit(&node, parent);
             }
         }
     };
 
-    traverse_node(node, &None);
+    traverse_node(&node, None, &visitors);
 }
