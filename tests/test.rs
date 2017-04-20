@@ -35,12 +35,12 @@ fn tokenizer_works() {
         body: vec![
             TransformedNode::ExpressionStatement {
                 expression: Box::new(TransformedNode::CallExpression {
-                    callee: Callee::Identifier("add".to_string()),
+                    callee: Box::new(TransformedNode::Identifier("add".to_string())),
                     arguments: vec![
                         TransformedNode::NumberLiteral("22".to_string()),
                         TransformedNode::StringLiteral("ff".to_string()),
                         TransformedNode::CallExpression {
-                            callee: Callee::Identifier("subtract".to_string()),
+                            callee: Box::new(TransformedNode::Identifier("subtract".to_string())),
                             arguments: vec![
                                 TransformedNode::NumberLiteral("4".to_string()),
                                 TransformedNode::NumberLiteral("2".to_string())

@@ -151,21 +151,27 @@ pub fn parser(tokens: Vec<Token>) -> Result<Node, String> {
 }
 
 pub struct Visitor {
-    pub enter: Option<Box<Fn(&Node, Option<&Node>, &mut TransformerContext)>>,
-    pub exit: Option<Box<Fn(&Node, Option<&Node>, &mut TransformerContext)>>,
+    pub enter: Option<Box<Fn(&Node, Option<&Node>, &mut Vec<TransformedNode>)>>,
+    pub exit: Option<Box<Fn(&Node, Option<&Node>, &mut Vec<TransformedNode>)>>,
 }
 
-pub fn traverser(ast: Node, mut context: &mut TransformerContext) {
+pub fn traverser(ast: Node,
+                 mut context: &mut Vec<TransformedNode>,
+                 visitors: &HashMap<NodeType, Visitor>) {
     fn traverse_nodes(nodes: &Vec<Node>,
                       parent: Option<&Node>,
-                      context: &mut TransformerContext) {
+                      mut context: &mut Vec<TransformedNode>,
+                      visitors: &HashMap<NodeType, Visitor>) {
         for node in nodes {
-            traverse_node(&node, parent, context);
+            traverse_node(&node, parent, &mut context, visitors);
         }
     };
 
-    fn traverse_node(node: &Node, parent: Option<&Node>, context: &mut TransformerContext) {
-        let visitor = context.visitors.get(&node.get_type());
+    fn traverse_node(node: &Node,
+                     parent: Option<&Node>,
+                     mut context: &mut Vec<TransformedNode>,
+                     visitors: &HashMap<NodeType, Visitor>) {
+        let visitor = visitors.get(&node.get_type());
 
         if visitor.is_some() {
             if let Some(ref enter) = visitor.unwrap().enter {
@@ -174,8 +180,10 @@ pub fn traverser(ast: Node, mut context: &mut TransformerContext) {
         }
 
         match *node {
-            Node::Program { ref body } => traverse_nodes(body, Some(node), context),
-            Node::CallExpression { ref params, .. } => traverse_nodes(params, Some(node), context),
+            Node::Program { ref body } => traverse_nodes(body, Some(node), &mut context, visitors),
+            Node::CallExpression { ref params, .. } => {
+                traverse_nodes(params, Some(node), &mut context, visitors)
+            }
             _ => {}
             //_ => println!("We can't have an unknown node here!"),
         }
@@ -187,12 +195,7 @@ pub fn traverser(ast: Node, mut context: &mut TransformerContext) {
         }
     };
 
-    traverse_node(&ast, None, &mut context);
-}
-
-#[derive(Debug,PartialEq,Clone)]
-pub enum Callee {
-    Identifier(String),
+    traverse_node(&ast, None, &mut context, visitors);
 }
 
 #[derive(Debug,PartialEq,Clone)]
@@ -200,16 +203,12 @@ pub enum TransformedNode {
     Program { body: Vec<TransformedNode> },
     ExpressionStatement { expression: Box<TransformedNode> },
     CallExpression {
-        callee: Callee,
+        callee: Box<TransformedNode>,
         arguments: Vec<TransformedNode>,
     },
+    Identifier(String),
     StringLiteral(String),
     NumberLiteral(String),
-}
-
-pub struct TransformerContext {
-    nodes: Vec<TransformedNode>,
-    visitors: HashMap<NodeType, Visitor>,
 }
 
 pub fn transformer(ast: Node) -> TransformedNode {
@@ -218,23 +217,68 @@ pub fn transformer(ast: Node) -> TransformedNode {
     visitors.insert(
         NodeType::NumberLiteral,
         Visitor {
-            enter: Some(Box::new(|node: &Node, parent: Option<&Node>, context: &mut TransformerContext| {
-                if let &Node::NumberLiteral(ref value) = node {
-                    context.nodes.push(TransformedNode::NumberLiteral(value.to_string()));
+            enter: Some(Box::new(|
+                node: &Node,
+                _parent: Option<&Node>,
+                context: &mut Vec<TransformedNode>
+            | {
+                if let Node::NumberLiteral(ref value) = *node {
+                    context.push(TransformedNode::NumberLiteral(value.to_string()));
                 }
             })),
             exit: None,
         }
     );
 
-    let nodes: Vec<TransformedNode> = vec![];
+    visitors.insert(
+        NodeType::StringLiteral,
+        Visitor {
+            enter: Some(Box::new(|
+                node: &Node,
+                _parent: Option<&Node>,
+                context: &mut Vec<TransformedNode>
+            | {
+                if let Node::StringLiteral(ref value) = *node {
+                    context.push(TransformedNode::StringLiteral(value.to_string()));
+                }
+            })),
+            exit: None,
+        }
+    );
 
-    let mut context = TransformerContext {
-        nodes: nodes,
-        visitors: visitors
-    };
+    visitors.insert(
+        NodeType::CallExpression,
+        Visitor {
+            enter: Some(Box::new(|
+                node: &Node,
+                parent: Option<&Node>,
+                context: &mut Vec<TransformedNode>
+            | {
+                if let Node::CallExpression { ref name, .. } = *node {
+                    let mut arguments: Vec<TransformedNode> = vec![];
 
-    traverser(ast, &mut context);
+                    // context = &mut arguments;
 
-    TransformedNode::Program { body: nodes }
+                    let call_expression = TransformedNode::CallExpression {
+                        callee: Box::new(TransformedNode::Identifier(name.to_string())),
+                        arguments: arguments,
+                    };
+
+                    let expression = match parent {
+                        Some(&Node::CallExpression { .. }) => call_expression,
+                        _ => TransformedNode::ExpressionStatement { expression: Box::new(call_expression) },
+                    };
+
+                    context.push(expression);
+                }
+            })),
+            exit: None,
+        }
+    );
+
+    let mut body: Vec<TransformedNode> = vec![];
+
+    traverser(ast, &mut body, &visitors);
+
+    TransformedNode::Program { body: body }
 }
