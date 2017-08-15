@@ -4,3 +4,6 @@ version = "0.1.0"
 authors = ["Donald Pipowitch <pipo@senaeh.de>"]
 
 [dependencies]
+
+[dev-dependencies]
+pretty_assertions = "0.2.1"

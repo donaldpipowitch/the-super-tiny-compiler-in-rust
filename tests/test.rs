@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate pretty_assertions;
 extern crate the_super_tiny_compiler;
 
 use the_super_tiny_compiler::*;
@@ -53,7 +55,13 @@ fn tokenizer_works() {
         ],
     };
 
-    assert_eq!(tokenizer(input), Ok(tokens.clone()), "Tokenizer should turn `input` into `tokens`");
-    assert_eq!(parser(tokens.clone()), Ok(ast.clone()), "Parser should turn `tokens` into `ast`");
-    assert_eq!(transformer(ast.clone()), new_ast, "Transformer should turn `ast` into a `new_ast`");
+    assert_eq!(tokenizer(input),
+               Ok(tokens.clone()),
+               "Tokenizer should turn `input` into `tokens`");
+    assert_eq!(parser(tokens.clone()),
+               Ok(ast.clone()),
+               "Parser should turn `tokens` into `ast`");
+    assert_eq!(transformer(ast.clone()),
+               new_ast,
+               "Transformer should turn `ast` into a `new_ast`");
 }

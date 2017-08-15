@@ -151,51 +151,47 @@ pub fn parser(tokens: Vec<Token>) -> Result<Node, String> {
 }
 
 pub struct Visitor {
-    pub enter: Option<Box<Fn(&Node, Option<&Node>, &mut Vec<TransformedNode>)>>,
-    pub exit: Option<Box<Fn(&Node, Option<&Node>, &mut Vec<TransformedNode>)>>,
+    pub enter: Option<Box<Fn(&Node, Option<&Node>, &mut Context)>>,
+    pub exit: Option<Box<Fn(&Node, Option<&Node>, &mut Context)>>,
 }
 
-pub fn traverser(ast: Node,
-                 mut context: &mut Vec<TransformedNode>,
-                 visitors: &HashMap<NodeType, Visitor>) {
+pub fn traverser(ast: Node, visitors: &HashMap<NodeType, Visitor>, context: &mut Context) {
     fn traverse_nodes(nodes: &Vec<Node>,
-                      parent: Option<&Node>,
-                      mut context: &mut Vec<TransformedNode>,
-                      visitors: &HashMap<NodeType, Visitor>) {
+                      parent: &Node,
+                      visitors: &HashMap<NodeType, Visitor>,
+                      context: &mut Context) {
         for node in nodes {
-            traverse_node(&node, parent, &mut context, visitors);
+            traverse_node(&node, Some(parent), visitors, context);
         }
     };
 
     fn traverse_node(node: &Node,
                      parent: Option<&Node>,
-                     mut context: &mut Vec<TransformedNode>,
-                     visitors: &HashMap<NodeType, Visitor>) {
+                     visitors: &HashMap<NodeType, Visitor>,
+                     context: &mut Context) {
         let visitor = visitors.get(&node.get_type());
 
         if visitor.is_some() {
             if let Some(ref enter) = visitor.unwrap().enter {
-                enter(&node, parent, context);
+                enter(node, parent, context);
             }
         }
 
         match *node {
-            Node::Program { ref body } => traverse_nodes(body, Some(node), &mut context, visitors),
-            Node::CallExpression { ref params, .. } => {
-                traverse_nodes(params, Some(node), &mut context, visitors)
-            }
+            Node::Program { ref body } => traverse_nodes(body, node, visitors, context),
+            Node::CallExpression { ref params, .. } => traverse_nodes(params, node, visitors, context),
             _ => {}
             //_ => println!("We can't have an unknown node here!"),
         }
 
         if visitor.is_some() {
             if let Some(ref exit) = visitor.unwrap().exit {
-                exit(&node, parent, context);
+                exit(node, parent, context);
             }
         }
     };
 
-    traverse_node(&ast, None, &mut context, visitors);
+    traverse_node(&ast, None, visitors, context);
 }
 
 #[derive(Debug,PartialEq,Clone)]
@@ -211,6 +207,10 @@ pub enum TransformedNode {
     NumberLiteral(String),
 }
 
+pub struct Context<'a> {
+    pub nodes: &'a mut Vec<TransformedNode>,
+}
+
 pub fn transformer(ast: Node) -> TransformedNode {
     let mut visitors = HashMap::new();
 
@@ -220,10 +220,10 @@ pub fn transformer(ast: Node) -> TransformedNode {
             enter: Some(Box::new(|
                 node: &Node,
                 _parent: Option<&Node>,
-                context: &mut Vec<TransformedNode>
+                context: &mut Context,
             | {
                 if let Node::NumberLiteral(ref value) = *node {
-                    context.push(TransformedNode::NumberLiteral(value.to_string()));
+                    context.nodes.push(TransformedNode::NumberLiteral(value.to_string()));
                 }
             })),
             exit: None,
@@ -236,10 +236,10 @@ pub fn transformer(ast: Node) -> TransformedNode {
             enter: Some(Box::new(|
                 node: &Node,
                 _parent: Option<&Node>,
-                context: &mut Vec<TransformedNode>
+                context: &mut Context,
             | {
                 if let Node::StringLiteral(ref value) = *node {
-                    context.push(TransformedNode::StringLiteral(value.to_string()));
+                    context.nodes.push(TransformedNode::StringLiteral(value.to_string()));
                 }
             })),
             exit: None,
@@ -252,12 +252,13 @@ pub fn transformer(ast: Node) -> TransformedNode {
             enter: Some(Box::new(|
                 node: &Node,
                 parent: Option<&Node>,
-                context: &mut Vec<TransformedNode>
+                context: &mut Context,
             | {
                 if let Node::CallExpression { ref name, .. } = *node {
-                    let mut arguments: Vec<TransformedNode> = vec![];
+                    let arguments: Vec<TransformedNode> = vec![];
 
-                    // context = &mut arguments;
+                    let parent_nodes = &mut context.nodes;
+                    context.nodes = &mut arguments;
 
                     let call_expression = TransformedNode::CallExpression {
                         callee: Box::new(TransformedNode::Identifier(name.to_string())),
@@ -266,10 +267,13 @@ pub fn transformer(ast: Node) -> TransformedNode {
 
                     let expression = match parent {
                         Some(&Node::CallExpression { .. }) => call_expression,
-                        _ => TransformedNode::ExpressionStatement { expression: Box::new(call_expression) },
+                        _ => {
+                            TransformedNode::ExpressionStatement {
+                                expression: Box::new(call_expression),
+                            }
+                        }
                     };
-
-                    context.push(expression);
+                    parent_nodes.push(expression);
                 }
             })),
             exit: None,
@@ -278,7 +282,14 @@ pub fn transformer(ast: Node) -> TransformedNode {
 
     let mut body: Vec<TransformedNode> = vec![];
 
-    traverser(ast, &mut body, &visitors);
+    {
+        let mut context = Context {
+            nodes: &mut body,
+        };
 
-    TransformedNode::Program { body: body }
+        traverser(ast, &visitors, &mut context);
+    }
+
+    let new_ast = TransformedNode::Program { body: body };
+    new_ast
 }
